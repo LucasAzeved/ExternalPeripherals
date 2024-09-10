@@ -22,6 +22,7 @@ void EXTI0_IRQHandler(void)
 	}
 }
 
+// config IRQ
 void configure_PA_irq(uint16_t line_opt, uint16_t edge_opt)
 {
 	EXTI_InitTypeDef EXTI_InitStructure;
