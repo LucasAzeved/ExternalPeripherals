@@ -3,14 +3,20 @@
 #include <usart.h>
 #include <libc.h>
 
+#define GPIO_READ 0
+#define GPIO_WRITE 1
+#define GPIO_CONFIGURE_EVENT 2
+
 struct data_s
 {
     uint16_t tid;
     uint8_t oper;
     uint16_t addr;
     int16_t data;
-} _attribute((packed)) _;
+} __attribute((packed))__;
 
+
+// Viagem isso aqui, vamo usa o padrao dos exemplos
 void send_serial_data(struct data_s *data)
 {
     uint8_t *bytes = (uint8_t *)data;
@@ -457,6 +463,7 @@ void configure_gpio_irq(uint16_t addr, uint16_t edge_opt)
 }
 
 // ------------ MAIN [INICIO] -------------
+
 void main(void)
 {
     configure_output_pins();
