@@ -7,6 +7,11 @@
 #define GPIO_WRITE 1
 #define GPIO_CONFIGURE_EVENT 2
 
+#define FRAME_DELIMITER 0x7e
+#define ESCAPE_CHAR     0x7d
+#define XOR_VALUE       0x20
+
+
 struct data_s
 {
     uint16_t tid;
@@ -16,123 +21,100 @@ struct data_s
 } __attribute((packed))__;
 
 
+uint16_t flag_irq = 0xffff;
+
 // Viagem isso aqui, vamo usa o padrao dos exemplos
-void send_serial_data(struct data_s *data)
-{
-    uint8_t *bytes = (uint8_t *)data;
-    putchar(FRAME_DELIMITER);
+// void send_serial_data(struct data_s *data)
+// {
+//     uint8_t *buf = (uint8_t *)data;
+//     putchar(FRAME_DELIMITER);
+//     for (int i = 0; i < sizeof(struct data_s); i++)
+//     {
+//         if (buf[i] == FRAME_DELIMITER || buf[i] == ESCAPE_CHAR)
+//         {
+//             putchar(ESCAPE_CHAR);
+//             putchar(buf[i] ^ XOR_VALUE);
+//         }
+//         else
+//         {
+//             putchar(buf[i]);
+//         }
+//     }
+//     putchar(FRAME_DELIMITER);
+// }
+
+void send_serial_data(struct data_s *data) {
+    uint8_t *buf = (uint8_t *)data;
     for (int i = 0; i < sizeof(struct data_s); i++)
-    {
-        if (bytes[i] == FRAME_DELIMITER || bytes[i] == ESCAPE_CHAR)
-        {
-            putchar(ESCAPE_CHAR);
-            putchar(bytes[i] ^ XOR_VALUE);
-        }
-        else
-        {
-            putchar(bytes[i]);
-        }
-    }
-    putchar(FRAME_DELIMITER);
+        putchar(buf[i]);
 }
 
-void process_command(struct data_s *data);
+// void process_command(struct data_s *data);
 
+// void EXTI0_IRQHandler(void)
+// {
+//     char buffer_int[256];
+//     struct data_s *data_int = (struct data_s *)&buffer_int;
+    
+//     if (EXTI_GetITStatus(EXTI_Line0) != RESET)
+//     {
+//         memset(buffer_int, 0, sizeof(buffer_int));
+//         data_int->tid = 0xffff;
+//         data_int->oper = 0;
+//         data_int->addr = 0x0001;
+//         data_int->data = 0;
+        
+//         // Simulate response for interrupt trigger
+//         process_command(data_int);
+        
+//         for (int i = 0; i < sizeof(struct data_s); i++)
+//             putchar(buffer_int[i]);
+        
+//         // Clear the EXTI line 0 pending bit
+//         EXTI_ClearITPendingBit(EXTI_Line0);
+//     }
+// }
 void EXTI0_IRQHandler(void)
 {
-    char buffer_int[256];
-    struct data_s *data_int = (struct data_s *)&buffer_int;
-
     if (EXTI_GetITStatus(EXTI_Line0) != RESET)
     {
-        memset(buffer_int, 0, sizeof(buffer_int));
-        data_int->tid = 0xffff;
-        data_int->oper = 0;
-        data_int->addr = 0x0001;
-        data_int->data = 0;
-
-        // Simulate response for interrupt trigger
-        process_command(data_int);
-
-        for (int i = 0; i < sizeof(struct data_s); i++)
-            putchar(buffer_int[i]);
-
+        flag_irq = 0x0010;
+        
         // Clear the EXTI line 0 pending bit
         EXTI_ClearITPendingBit(EXTI_Line0);
     }
 }
-
-/*void configure_PA_irq(uint16_t line_opt, uint16_t edge_opt)
+void EXTI1_IRQHandler(void)
 {
-    EXTI_InitTypeDef EXTI_InitStructure;
-    NVIC_InitTypeDef NVIC_InitStructure;
-
-    char line, pinsrc, channel, edge;
-
-    switch (line_opt)
+    if (EXTI_GetITStatus(EXTI_Line1) != RESET)
     {
-    case 0:
-        line = EXTI_Line0;
-        pinsrc = EXTI_PinSource0;
-        channel = EXTI0_IRQn;
-        break;
-    case 1:
-        line = EXTI_Line1;
-        pinsrc = EXTI_PinSource1;
-        channel = EXTI1_IRQn;
-        break;
-    case 2:
-        line = EXTI_Line2;
-        pinsrc = EXTI_PinSource2;
-        channel = EXTI2_IRQn;
-        break;
-    case 3:
-        line = EXTI_Line3;
-        pinsrc = EXTI_PinSource3;
-        channel = EXTI3_IRQn;
-        break;
+        flag_irq = 0x0011;
+        
+        // Clear the EXTI line 0 pending bit
+        EXTI_ClearITPendingBit(EXTI_Line1);
     }
-
-    switch (edge_opt)
+}
+void EXTI2_IRQHandler(void)
+{
+    if (EXTI_GetITStatus(EXTI_Line2) != RESET)
     {
-    case 0:
-        edge = EXTI_Trigger_Rising;
-        break;
-    case 1:
-        edge = EXTI_Trigger_Falling;
-        break;
-    case 2:
-        edge = EXTI_Trigger_Rising_Falling;
-        break;
+        flag_irq = 0x0012;
+        
+        // Clear the EXTI line 0 pending bit
+        EXTI_ClearITPendingBit(EXTI_Line2);
     }
+}
+void EXTI3_IRQHandler(void)
+{
+    if (EXTI_GetITStatus(EXTI_Line3) != RESET)
+    {
+        flag_irq = 0x0013;
+        
+        // Clear the EXTI line 0 pending bit
+        EXTI_ClearITPendingBit(EXTI_Line3);
+    }
+}
 
-    ;; GPIOA Peripheral clock enable.
-    RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
-
-    ;; Connect EXTI Line0 to PA0 pin
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
-    // ALTERAR PINSOURCE [LINE]
-    SYSCFG_EXTILineConfig(EXTI_PortSourceGPIOA, pinsrc); // ALTERADO
-
-    ;; Configure EXTI Line0
-
-    // ALTERAR LINE [LINE]
-    EXTI_InitStructure.EXTI_Line = line; // ALTERADO
-    EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
-
-    // ALTERAR TRIGGER [EDGE]
-    EXTI_InitStructure.EXTI_Trigger = edge; // ALTERADO
-    EXTI_InitStructure.EXTI_LineCmd = ENABLE;
-    EXTI_Init(&EXTI_InitStructure);
-
-    // Enable and set EXTI Line0 Interrupt to the lowest priority
-    // ALTERAR CHANNEL EXTI [LINE]
-    NVIC_InitStructure.NVIC_IRQChannel = channel; // ALTERADO
-    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x01;
-    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x01;
-    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-    NVIC_Init(&NVIC_InitStructure);
-}*/
 
 void configure_PA0_irq(uint16_t edge_opt)
 {
@@ -440,8 +422,6 @@ void process_command(struct data_s *data)
 
 void configure_gpio_irq(uint16_t addr, uint16_t edge_opt)
 {
-    // Você precisará criar esta função para configurar interrupções com base no endereço e tipo de borda
-    // Exemplo:
     switch (addr)
     {
     case 0x1101:
@@ -466,19 +446,37 @@ void configure_gpio_irq(uint16_t addr, uint16_t edge_opt)
 
 void main(void)
 {
+    struct data_s *data;
+    uint8_t *buf = (uint8_t *)&data;
+    
     configure_output_pins();
     configure_input_pins();
-
+    
+    uart_init(USART_PORT, 115200, 0);
+    
     // Configure each pin to trigger an interrupt on state change
-    configure_PA_irq(EXTI_Line0, EXTI_Trigger_Rising_Falling);
-
+    // configure_PA_irq(EXTI_Line0, EXTI_Trigger_Rising_Falling);
+    
     while (1)
     {
-        struct data_s data;
-        if (usart_read_frame(&data, sizeof(data)))
-        {
-            process_command(&data);
+        if (flag_irq != 0xffff) {
+			memset(buf, 0, sizeof(buf));
+            data->tid = 0xffff;
+            data->oper = 0;
+            data->addr = flag_irq;
+            data->data = 0;
+            send_serial_data(data);
+            flag_irq = 0xffff;
         }
+        
+		if (kbhit()) {
+			memset(buf, 0, sizeof(buf));
+			
+			for (int i = 0; i < sizeof(struct data_s) && kbhit(); i++)
+				buf[i] = getchar();
+            
+            process_command(data);
+		}
     }
 }
 
