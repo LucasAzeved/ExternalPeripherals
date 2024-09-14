@@ -11,6 +11,9 @@
 #define ESCAPE_CHAR     0x7d
 #define XOR_VALUE       0x20
 
+#define MAX_TASKS	20
+
+uint16_t flag_irq = 0xffff;
 
 struct data_s
 {
@@ -19,9 +22,6 @@ struct data_s
     uint16_t addr;
     int16_t data;
 } __attribute((packed))__;
-
-
-uint16_t flag_irq = 0xffff;
 
 // Viagem isso aqui, vamo usa o padrao dos exemplos
 // void send_serial_data(struct data_s *data)
@@ -49,6 +49,64 @@ void send_serial_data(struct data_s *data) {
         putchar(buf[i]);
 }
 
+void *taskAsyncIRQ(void *arg)
+{
+	static int cont = 0;
+	
+	printf("task 1, cont: %d\n", cont++);
+	
+	return 0;
+}
+
+void *taskProcessCommand(void *arg)
+{
+	static int cont = 0;
+	
+	printf("task 2, cont: %d\n", cont++);
+	
+	return 0;
+}
+
+struct task_s {
+	void *(*task)(void *);
+	unsigned char priority;
+	unsigned char pcounter;
+};
+
+void task_add(struct task_s *tasks, void *(task_ptr)(void *), unsigned char priority)
+{
+	struct task_s *ptask;
+	int i;
+	
+	for (i = 0; i < MAX_TASKS; i++) {
+		ptask = &tasks[i];
+		if (!ptask->task) break;
+	}
+	
+	ptask->task = task_ptr;
+	ptask->priority = priority;
+	ptask->pcounter = priority;
+}
+
+void task_schedule(struct task_s *tasks)
+{
+	struct task_s *ptask;
+	int i;
+	
+	while (1) {
+		for (i = 0; i < MAX_TASKS; i++) {
+			ptask = &tasks[i];
+			if (!ptask->task) break;
+			
+			if (!--ptask->pcounter) {
+				ptask->pcounter = ptask->priority;
+				ptask->task(0);
+				return;
+			}
+		}
+	}
+}
+
 // void process_command(struct data_s *data);
 
 // void EXTI0_IRQHandler(void)
@@ -74,6 +132,7 @@ void send_serial_data(struct data_s *data) {
 //         EXTI_ClearITPendingBit(EXTI_Line0);
 //     }
 // }
+
 void EXTI0_IRQHandler(void)
 {
     if (EXTI_GetITStatus(EXTI_Line0) != RESET)
@@ -84,6 +143,7 @@ void EXTI0_IRQHandler(void)
         EXTI_ClearITPendingBit(EXTI_Line0);
     }
 }
+
 void EXTI1_IRQHandler(void)
 {
     if (EXTI_GetITStatus(EXTI_Line1) != RESET)
@@ -94,6 +154,7 @@ void EXTI1_IRQHandler(void)
         EXTI_ClearITPendingBit(EXTI_Line1);
     }
 }
+
 void EXTI2_IRQHandler(void)
 {
     if (EXTI_GetITStatus(EXTI_Line2) != RESET)
@@ -104,6 +165,7 @@ void EXTI2_IRQHandler(void)
         EXTI_ClearITPendingBit(EXTI_Line2);
     }
 }
+
 void EXTI3_IRQHandler(void)
 {
     if (EXTI_GetITStatus(EXTI_Line3) != RESET)
@@ -114,7 +176,6 @@ void EXTI3_IRQHandler(void)
         EXTI_ClearITPendingBit(EXTI_Line3);
     }
 }
-
 
 void configure_PA0_irq(uint16_t edge_opt)
 {
@@ -382,27 +443,27 @@ void process_command(struct data_s *data)
         {
         case 0x1001:
             if (data->data == 1)
-                GPIO_SetBits(GPIOA, GPIO_Pin_1);
+                GPIO_SetBits(GPIOB, GPIO_Pin_6);
             else
-                GPIO_ResetBits(GPIOA, GPIO_Pin_1);
+                GPIO_ResetBits(GPIOB, GPIO_Pin_6);
             break;
         case 0x1002:
             if (data->data == 1)
-                GPIO_SetBits(GPIOA, GPIO_Pin_2);
+                GPIO_SetBits(GPIOB, GPIO_Pin_7);
             else
-                GPIO_ResetBits(GPIOA, GPIO_Pin_2);
+                GPIO_ResetBits(GPIOB, GPIO_Pin_7);
             break;
         case 0x1003:
             if (data->data == 1)
-                GPIO_SetBits(GPIOA, GPIO_Pin_3);
+                GPIO_SetBits(GPIOB, GPIO_Pin_8);
             else
-                GPIO_ResetBits(GPIOA, GPIO_Pin_3);
+                GPIO_ResetBits(GPIOB, GPIO_Pin_8);
             break;
         case 0x1004:
             if (data->data == 1)
-                GPIO_SetBits(GPIOA, GPIO_Pin_4);
+                GPIO_SetBits(GPIOB, GPIO_Pin_9);
             else
-                GPIO_ResetBits(GPIOA, GPIO_Pin_4);
+                GPIO_ResetBits(GPIOB, GPIO_Pin_9);
             break;
         default:
             data->data = 0xFFFF; // Unknown address
@@ -427,13 +488,13 @@ void configure_gpio_irq(uint16_t addr, uint16_t edge_opt)
     case 0x1101:
         configure_PA0_irq(edge_opt);
         break;
-    case 0x1104:
+    case 0x1102:
         configure_PA1_irq(edge_opt);
         break;
-    case 0x1107:
+    case 0x1103:
         configure_PA2_irq(edge_opt);
         break;
-    case 0x110A:
+    case 0x1104:
         configure_PA3_irq(edge_opt);
         break;
     default:
@@ -448,14 +509,18 @@ void main(void)
 {
     struct data_s *data;
     uint8_t *buf = (uint8_t *)&data;
+
+    struct task_s tasks[MAX_TASKS] = { 0 };
+	struct task_s *ptasksAsyncIRQ= tasks;
+    struct task_s *ptasksCommand = tasks;
     
     configure_output_pins();
     configure_input_pins();
     
     uart_init(USART_PORT, 115200, 0);
-    
-    // Configure each pin to trigger an interrupt on state change
-    // configure_PA_irq(EXTI_Line0, EXTI_Trigger_Rising_Falling);
+
+    task_add(ptasksAsyncIRQ, taskAsyncIRQ, 10);
+	task_add(ptasksCommand, taskProcessCommand, 20);
     
     while (1)
     {
@@ -467,6 +532,8 @@ void main(void)
             data->data = 0;
             send_serial_data(data);
             flag_irq = 0xffff;
+
+            //task_schedule(ptasksAsyncIRQ);
         }
         
 		if (kbhit()) {
@@ -476,6 +543,8 @@ void main(void)
 				buf[i] = getchar();
             
             process_command(data);
+
+            //task_schedule(ptasksCommand);
 		}
     }
 }
