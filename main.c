@@ -51,18 +51,40 @@ void send_serial_data(struct data_s *data) {
 
 void *taskAsyncIRQ(void *arg)
 {
-	static int cont = 0;
+	// static int cont = 0;
+	// printf("task 1, cont: %d\n", cont++);
 	
-	printf("task 1, cont: %d\n", cont++);
+    struct data_s *data;
+    uint8_t *buf = (uint8_t *)&data;
+
+    if (flag_irq != 0xffff) {
+        memset(buf, 0, sizeof(buf));
+        data->tid = 0xffff;
+        data->oper = 0;
+        data->addr = flag_irq;
+        data->data = 0;
+        send_serial_data(data);
+        flag_irq = 0xffff;
+        
+    }
 	
 	return 0;
 }
 
 void *taskProcessCommand(void *arg)
 {
-	static int cont = 0;
+	// static int cont = 0;
+	// printf("task 2, cont: %d\n", cont++);
+
+    struct data_s *data;
+    uint8_t *buf = (uint8_t *)&data;
 	
-	printf("task 2, cont: %d\n", cont++);
+    if (kbhit()) {
+        memset(buf, 0, sizeof(buf));
+        for (int i = 0; i < sizeof(struct data_s) && kbhit(); i++)
+            buf[i] = getchar();
+        process_command(data);
+    }
 	
 	return 0;
 }
@@ -405,14 +427,6 @@ void configure_input_pins()
 
 // ------------ CONFIGURA MODO DOS PINOS [FIM] -------------
 
-/* Duvidas:
-    Pull Up e Pull Down?
-    Como usar o Handler?
-    Podemos usar variaveis para setar Lines e Edges?
-
-
-*/
-
 void process_command(struct data_s *data)
 {
     switch (data->oper)
@@ -505,25 +519,35 @@ void configure_gpio_irq(uint16_t addr, uint16_t edge_opt)
 
 // ------------ MAIN [INICIO] -------------
 
+/* Duvidas:
+    Pull Up e Pull Down?
+    Resistores pros botões
+    Corrotinas
+
+*/
+
 void main(void)
 {
     struct data_s *data;
     uint8_t *buf = (uint8_t *)&data;
 
     struct task_s tasks[MAX_TASKS] = { 0 };
-	struct task_s *ptasksAsyncIRQ= tasks;
-    struct task_s *ptasksCommand = tasks;
+	struct task_s *ptasks = tasks;
+    
     
     configure_output_pins();
     configure_input_pins();
     
     uart_init(USART_PORT, 115200, 0);
 
-    task_add(ptasksAsyncIRQ, taskAsyncIRQ, 10);
-	task_add(ptasksCommand, taskProcessCommand, 20);
+    task_add(ptasks, taskAsyncIRQ, 10);
+	task_add(ptasks, taskProcessCommand, 20);
     
     while (1)
     {
+        //task_schedule(ptasks);
+
+
         if (flag_irq != 0xffff) {
 			memset(buf, 0, sizeof(buf));
             data->tid = 0xffff;
@@ -532,10 +556,8 @@ void main(void)
             data->data = 0;
             send_serial_data(data);
             flag_irq = 0xffff;
-
-            //task_schedule(ptasksAsyncIRQ);
+            
         }
-        
 		if (kbhit()) {
 			memset(buf, 0, sizeof(buf));
 			
@@ -544,7 +566,6 @@ void main(void)
             
             process_command(data);
 
-            //task_schedule(ptasksCommand);
 		}
     }
 }
