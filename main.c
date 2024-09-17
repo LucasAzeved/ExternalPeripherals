@@ -13,7 +13,7 @@
 
 #define MAX_TASKS	20
 
-uint16_t flag_irq = 0xffff;
+volatile uint16_t flag_irq = 0xffff;
 
 struct data_s
 {
@@ -545,28 +545,28 @@ void main(void)
     
     while (1)
     {
-        //task_schedule(ptasks);
+        task_schedule(ptasks);
 
 
-        if (flag_irq != 0xffff) {
-			memset(buf, 0, sizeof(buf));
-            data->tid = 0xffff;
-            data->oper = 0;
-            data->addr = flag_irq;
-            data->data = 0;
-            send_serial_data(data);
-            flag_irq = 0xffff;
+        // if (flag_irq != 0xffff) {
+		// 	memset(buf, 0, sizeof(buf));
+        //     data->tid = 0xffff;
+        //     data->oper = 0;
+        //     data->addr = flag_irq;
+        //     data->data = 0;
+        //     send_serial_data(data);
+        //     flag_irq = 0xffff;
             
-        }
-		if (kbhit()) {
-			memset(buf, 0, sizeof(buf));
+        // }
+		// if (kbhit()) {
+		// 	memset(buf, 0, sizeof(buf));
 			
-			for (int i = 0; i < sizeof(struct data_s) && kbhit(); i++)
-				buf[i] = getchar();
+		// 	for (int i = 0; i < sizeof(struct data_s) && kbhit(); i++)
+		// 		buf[i] = getchar();
             
-            process_command(data);
+        //     process_command(data);
 
-		}
+		// }
     }
 }
 
