@@ -44,9 +44,13 @@ struct data_s
 // }
 
 void send_serial_data(struct data_s *data) {
+    // struct data_s *data = (struct data_s *)&buf;
     uint8_t *buf = (uint8_t *)data;
-    for (int i = 0; i < sizeof(struct data_s); i++)
+    printf("0x%04X 0x%02X 0x%04X 0x%04X \n", data->tid, data->oper, data->addr, data->data);
+    for (int i = 0; i < sizeof(struct data_s); i++){
         putchar(buf[i]);
+        printf("0x%02X\n", buf[i]);
+    }
 }
 
 void *taskAsyncIRQ(void *arg)
@@ -54,18 +58,25 @@ void *taskAsyncIRQ(void *arg)
 	// static int cont = 0;
 	// printf("task 1, cont: %d\n", cont++);
 	
-    struct data_s *data;
-    uint8_t *buf = (uint8_t *)&data;
+	char buf[256];
+	struct data_s *data = (struct data_s *)&buf;
+    
+    // struct data_s *data;
+    // uint8_t *buf = (uint8_t *)&data;
 
     if (flag_irq != 0xffff) {
+        
+        // printf("Antes: 0x%04x\n", flag_irq);
         memset(buf, 0, sizeof(buf));
         data->tid = 0xffff;
         data->oper = 0;
         data->addr = flag_irq;
         data->data = 0;
-        send_serial_data(data);
+        send_serial_data(buf);
         flag_irq = 0xffff;
         
+        // printf("Depois: 0x%04x\n", flag_irq);
+        // printf("0x%04X 0x%02X 0x%04X 0x%04X \n", data->tid, data->oper, data->addr, data->data);
     }
 	
 	return 0;
@@ -538,16 +549,24 @@ void main(void)
     configure_output_pins();
     configure_input_pins();
     
+    // 0: Rising
+    // 1: Falling
+    // 2: Rising Falling
+    
+    configure_PA0_irq(1);
+    configure_PA1_irq(1);
+    configure_PA2_irq(1);
+    configure_PA3_irq(1);
+    
     uart_init(USART_PORT, 115200, 0);
-
+    
     task_add(ptasks, taskAsyncIRQ, 10);
 	task_add(ptasks, taskProcessCommand, 20);
     
     while (1)
     {
         task_schedule(ptasks);
-
-
+        
         // if (flag_irq != 0xffff) {
 		// 	memset(buf, 0, sizeof(buf));
         //     data->tid = 0xffff;
@@ -556,14 +575,14 @@ void main(void)
         //     data->data = 0;
         //     send_serial_data(data);
         //     flag_irq = 0xffff;
-            
+        
         // }
 		// if (kbhit()) {
 		// 	memset(buf, 0, sizeof(buf));
-			
+		
 		// 	for (int i = 0; i < sizeof(struct data_s) && kbhit(); i++)
 		// 		buf[i] = getchar();
-            
+        
         //     process_command(data);
 
 		// }
