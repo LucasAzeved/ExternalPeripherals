@@ -3,9 +3,9 @@
 #include <usart.h>
 #include <libc.h>
 
-#define GPIO_READ 0
-#define GPIO_WRITE 1
-#define GPIO_CONFIGURE_EVENT 2
+#define GPIO_READ 0x00
+#define GPIO_WRITE 0x01
+#define GPIO_CONFIGURE_EVENT 0x02
 
 #define FRAME_DELIMITER 0x7e
 #define ESCAPE_CHAR     0x7d
@@ -49,7 +49,7 @@ void send_serial_data(struct data_s *data) {
     printf("0x%04X 0x%02X 0x%04X 0x%04X \n", data->tid, data->oper, data->addr, data->data);
     for (int i = 0; i < sizeof(struct data_s); i++){
         putchar(buf[i]);
-        printf("0x%02X\n", buf[i]);
+        // printf("0x%02X\n", buf[i]);
     }
 }
 
@@ -87,14 +87,16 @@ void *taskProcessCommand(void *arg)
 	// static int cont = 0;
 	// printf("task 2, cont: %d\n", cont++);
 
-    struct data_s *data;
-    uint8_t *buf = (uint8_t *)&data;
+    char buf[256];
+	struct data_s *data = (struct data_s *)&buf;
 	
     if (kbhit()) {
         memset(buf, 0, sizeof(buf));
         for (int i = 0; i < sizeof(struct data_s) && kbhit(); i++)
             buf[i] = getchar();
         process_command(data);
+        printf("0x%04X 0x%02X 0x%04X 0x%04X \n", data->tid, data->oper, data->addr, data->data);
+
     }
 	
 	return 0;
@@ -443,49 +445,50 @@ void process_command(struct data_s *data)
     switch (data->oper)
     {
     case GPIO_READ: // LEITURA
-        switch (data->addr)
-        {
-        case 0x1001:
-            data->data = GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_1);
-            break;
-        case 0x1002:
-            data->data = GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_2);
-            break;
-        case 0x1003:
-            data->data = GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_3);
-            break;
-        case 0x1004:
-            data->data = GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_4);
-            break;
-        default:
-            data->data = 0xFFFF; // Unknown address
-            break;
+        switch (data->addr) {
+            case 0x1001:
+                data->data = GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0);
+                break;
+            case 0x1002:
+                data->data = GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_1);
+                break;
+            case 0x1003:
+                data->data = GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_2);
+                break;
+            case 0x1004:
+                data->data = GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_3);
+                break;
+            default:
+                data->data = 0xffff; // Unknown address
+                break;
         }
+
+        send_serial_data(data);
         break;
 
     case GPIO_WRITE: // ESCRITA
         switch (data->addr)
         {
         case 0x1001:
-            if (data->data == 1)
+            if (data->data == 0x0001)
                 GPIO_SetBits(GPIOB, GPIO_Pin_6);
             else
                 GPIO_ResetBits(GPIOB, GPIO_Pin_6);
             break;
         case 0x1002:
-            if (data->data == 1)
+            if (data->data == 0x0001)
                 GPIO_SetBits(GPIOB, GPIO_Pin_7);
             else
                 GPIO_ResetBits(GPIOB, GPIO_Pin_7);
             break;
         case 0x1003:
-            if (data->data == 1)
+            if (data->data == 0x0001)
                 GPIO_SetBits(GPIOB, GPIO_Pin_8);
             else
                 GPIO_ResetBits(GPIOB, GPIO_Pin_8);
             break;
         case 0x1004:
-            if (data->data == 1)
+            if (data->data == 0x0001)
                 GPIO_SetBits(GPIOB, GPIO_Pin_9);
             else
                 GPIO_ResetBits(GPIOB, GPIO_Pin_9);
@@ -553,10 +556,10 @@ void main(void)
     // 1: Falling
     // 2: Rising Falling
     
-    configure_PA0_irq(1);
-    configure_PA1_irq(1);
-    configure_PA2_irq(1);
-    configure_PA3_irq(1);
+    // configure_PA0_irq(1);
+    // configure_PA1_irq(1);
+    // configure_PA2_irq(1);
+    // configure_PA3_irq(1);
     
     uart_init(USART_PORT, 115200, 0);
     
