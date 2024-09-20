@@ -23,27 +23,58 @@ struct data_s
     int16_t data;
 } __attribute((packed))__;
 
-// Viagem isso aqui, vamo usa o padrao dos exemplos
-// void send_serial_data(struct data_s *data)
-// {
-//     uint8_t *buf = (uint8_t *)data;
-//     putchar(FRAME_DELIMITER);
-//     for (int i = 0; i < sizeof(struct data_s); i++)
-//     {
-//         if (buf[i] == FRAME_DELIMITER || buf[i] == ESCAPE_CHAR)
-//         {
-//             putchar(ESCAPE_CHAR);
-//             putchar(buf[i] ^ XOR_VALUE);
-//         }
-//         else
-//         {
-//             putchar(buf[i]);
-//         }
-//     }
-//     putchar(FRAME_DELIMITER);
-// }
+void send_serial_data(struct data_s *data);
+void print_frame(uint8_t *frame, int frame_size);
 
-void send_serial_data(struct data_s *data) {
+void send_serial_data(struct data_s *data)
+{
+    uint8_t *buf = (uint8_t *)data;
+    uint8_t frame[512];  // Buffer para o frame com delimitadores e caracteres de escape
+    int frame_pos = 0;
+
+    // Adicionar delimitador de início do quadro
+    frame[frame_pos++] = FRAME_DELIMITER;
+
+    // Realizar byte stuffing e adicionar os dados ao frame
+    for (int i = 0; i < sizeof(struct data_s); i++)
+    {
+        if (buf[i] == FRAME_DELIMITER || buf[i] == ESCAPE_CHAR)
+        {
+            frame[frame_pos++] = ESCAPE_CHAR;
+            frame[frame_pos++] = buf[i] ^ XOR_VALUE;
+        }
+        else
+        {
+            frame[frame_pos++] = buf[i];
+        }
+    }
+
+    // Adicionar delimitador de fim do quadro
+    frame[frame_pos++] = FRAME_DELIMITER;
+
+    // Print do frame no formato solicitado na especificação
+    print_frame(frame, frame_pos);
+
+    // Enviar o quadro byte a byte
+    putchar(FRAME_DELIMITER);  // Delimitador de início
+    for (int i = 0; i < frame_pos; i++)
+    {
+        putchar(frame[i]);
+    }
+    putchar(FRAME_DELIMITER);  // Delimitador de fim
+}
+
+void print_frame(uint8_t *frame, int frame_size)
+{
+    printf("| ");
+    for (int i = 0; i < frame_size; i++)
+    {
+        printf("0x%02X ", frame[i]);
+    }
+    printf("|\n");
+}
+
+/* void send_serial_data(struct data_s *data) {
     // struct data_s *data = (struct data_s *)&buf;
     uint8_t *buf = (uint8_t *)data;
     printf("0x%04X 0x%02X 0x%04X 0x%04X \n", data->tid, data->oper, data->addr, data->data);
@@ -51,7 +82,7 @@ void send_serial_data(struct data_s *data) {
         putchar(buf[i]);
         // printf("0x%02X\n", buf[i]);
     }
-}
+} */
 
 void *taskAsyncIRQ(void *arg)
 {
