@@ -192,7 +192,7 @@ void receive_serial_data(int fd, struct data_s *data)
     uint8_t data_buf[sizeof(struct data_s)];
     int data_pos = 0;
     int escaped = 0;
-
+    
     // Ler os dados da porta serial
     int bytes_read = read(fd, buf, sizeof(buf));
     if (bytes_read < 0)
@@ -200,7 +200,7 @@ void receive_serial_data(int fd, struct data_s *data)
         printf("Erro ao ler os dados: %s\n", strerror(errno));
         return;
     }
-
+    
     // Iterar pelos dados recebidos e decodificá-los
     for (int i = 0; i < bytes_read; i++)
     {
@@ -226,12 +226,12 @@ void receive_serial_data(int fd, struct data_s *data)
                 data_buf[data_pos++] = buf[i];
             }
         }
-
+        
         // Parar quando a estrutura completa estiver preenchida
         if (data_pos >= sizeof(struct data_s))
             break;
     }
-
+    
     // Copiar os dados decodificados para a estrutura
     memcpy(data, data_buf, sizeof(struct data_s));
 }

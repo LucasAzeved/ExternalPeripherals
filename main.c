@@ -31,10 +31,10 @@ void send_serial_data(struct data_s *data)
     uint8_t *buf = (uint8_t *)data;
     uint8_t frame[512];  // Buffer para o frame com delimitadores e caracteres de escape
     int frame_pos = 0;
-
+    
     // Adicionar delimitador de início do quadro
     frame[frame_pos++] = FRAME_DELIMITER;
-
+    
     // Realizar byte stuffing e adicionar os dados ao frame
     for (int i = 0; i < sizeof(struct data_s); i++)
     {
@@ -48,13 +48,13 @@ void send_serial_data(struct data_s *data)
             frame[frame_pos++] = buf[i];
         }
     }
-
+    
     // Adicionar delimitador de fim do quadro
     frame[frame_pos++] = FRAME_DELIMITER;
-
+    
     // Print do frame no formato solicitado na especificação
     print_frame(frame, frame_pos);
-
+    
     // Enviar o quadro byte a byte
     putchar(FRAME_DELIMITER);  // Delimitador de início
     for (int i = 0; i < frame_pos; i++)
@@ -107,7 +107,7 @@ void *taskAsyncIRQ(void *arg)
         flag_irq = 0xffff;
         
         // printf("Depois: 0x%04x\n", flag_irq);
-        // printf("0x%04X 0x%02X 0x%04X 0x%04X \n", data->tid, data->oper, data->addr, data->data);
+        printf("[IRQ] addr: 0x%04X tid: 0x%04X \n", data->addr, data->tid);
     }
 	
 	return 0;
@@ -126,7 +126,7 @@ void *taskProcessCommand(void *arg)
         for (int i = 0; i < sizeof(struct data_s) && kbhit(); i++)
             buf[i] = getchar();
         process_command(data);
-        printf("0x%04X 0x%02X 0x%04X 0x%04X \n", data->tid, data->oper, data->addr, data->data);
+        printf("TID: 0x%04X OP: 0x%02X ADDR: 0x%04X DATA: 0x%04X \n", data->tid, data->oper, data->addr, data->data);
 
     }
 	
