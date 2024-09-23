@@ -21,18 +21,6 @@ struct data_s
     int16_t data;
 } __attribute((packed))__;
 
-// Função para aguardar dados na porta serial
-int wait_for_data(int fd, int timeout)
-{
-    fd_set readfds;
-    struct timeval tv;
-    FD_ZERO(&readfds);
-    FD_SET(fd, &readfds);
-    tv.tv_sec = timeout;
-    tv.tv_usec = 0;
-
-    return select(fd + 1, &readfds, NULL, NULL, &tv);
-}
 
 void receive_serial_data(int fd, struct data_s *data)
 {
@@ -45,7 +33,6 @@ void receive_serial_data(int fd, struct data_s *data)
     int bytes_read = read(fd, buf, sizeof(buf));
     if (bytes_read < 0)
     {
-        printf("Erro ao ler os dados: %s\n", strerror(errno));
         return;
     }
     
@@ -87,10 +74,9 @@ void receive_serial_data(int fd, struct data_s *data)
 int main(int argc, char **argv)
 {
 	int fd;
-	struct data_s s;
-	struct data_s *data = &s;
-	uint8_t *ptr = (uint8_t *)&s;
-	
+	char buf[256];
+    struct data_s *data = (struct data_s *)&buf;
+
 	if (argc != 2) {
 		printf("Usage: serial_host_data <port>\n");
 		
@@ -104,15 +90,18 @@ int main(int argc, char **argv)
 		return -1;
 	}	
     
-    read(fd, ptr, sizeof(struct data_s));
+    read(fd, buf, sizeof(struct data_s));
     
     printf("Running...\n");
 	
     while (1) {
-		usleep(50000);
-		// read(fd, ptr, sizeof(struct data_s));
+		
+        memset(buf, 0, sizeof(buf));
+        
+        usleep(500000);
+		
         receive_serial_data(fd, data);
-        // printf("0x%04X\n", data->tid);
+        
         if (data->tid == 0xffff) {
             printf("0x%04X 0x%02X 0x%04X 0x%04X \n", data->tid, data->oper, data->addr, data->data);
         }

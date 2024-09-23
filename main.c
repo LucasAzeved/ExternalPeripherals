@@ -23,8 +23,17 @@ struct data_s
     int16_t data;
 } __attribute((packed))__;
 
-void send_serial_data(struct data_s *data);
-void print_frame(uint8_t *frame, int frame_size);
+// ------------ UTILITARIOS [INICIO] -------------
+
+void print_frame(uint8_t *frame, int frame_size)
+{
+    printf("| ");
+    for (int i = 0; i < frame_size; i++)
+    {
+        printf("0x%02X ", frame[i]);
+    }
+    printf("|\n");
+}
 
 // void send_serial_data(struct data_s *data)
 // {
@@ -63,6 +72,7 @@ void print_frame(uint8_t *frame, int frame_size);
 //     }
 //     putchar(FRAME_DELIMITER);  // Delimitador de fim
 // }
+
 
 void send_serial_data(struct data_s *data)
 {
@@ -146,17 +156,6 @@ void send_serial_data(struct data_s *data)
     }
 }
 
-
-void print_frame(uint8_t *frame, int frame_size)
-{
-    printf("| ");
-    for (int i = 0; i < frame_size; i++)
-    {
-        printf("0x%02X ", frame[i]);
-    }
-    printf("|\n");
-}
-
 /* void send_serial_data(struct data_s *data) {
     // struct data_s *data = (struct data_s *)&buf;
     uint8_t *buf = (uint8_t *)data;
@@ -166,6 +165,10 @@ void print_frame(uint8_t *frame, int frame_size)
         // printf("0x%02X\n", buf[i]);
     }
 } */
+
+// ------------ UTILITARIOS [FIM] -------------
+
+// ------------ FUNCOES THREAD [INICIO] -------------
 
 void *taskAsyncIRQ(void *arg)
 {
@@ -193,9 +196,6 @@ void *taskAsyncIRQ(void *arg)
 
 void *taskProcessCommand(void *arg)
 {
-	// static int cont = 0;
-	// printf("task 2, cont: %d\n", cont++);
-
     char buf[256];
 	struct data_s *data = (struct data_s *)&buf;
     
@@ -252,6 +252,101 @@ void *taskProcessCommand(void *arg)
 	return 0;
 }
 
+void process_command(struct data_s *data)
+{
+    switch (data->oper)
+    {
+    case GPIO_READ: // LEITURA
+        switch (data->addr) {
+            case 0x1001:
+                data->data = GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0);
+                break;
+            case 0x1002:
+                data->data = GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_1);
+                break;
+            case 0x1003:
+                data->data = GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_2);
+                break;
+            case 0x1004:
+                data->data = GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_3);
+                break;
+            default:
+                data->data = 0xffff; // Unknown address
+                break;
+        }
+        
+        send_serial_data(data);
+        break;
+    
+    case GPIO_WRITE: // ESCRITA
+        switch (data->addr)
+        {
+        case 0x1001:
+            if (data->data == 0x0001)
+                GPIO_SetBits(GPIOB, GPIO_Pin_6);
+            else
+                GPIO_ResetBits(GPIOB, GPIO_Pin_6);
+            break;
+        case 0x1002:
+            if (data->data == 0x0001)
+                GPIO_SetBits(GPIOB, GPIO_Pin_7);
+            else
+                GPIO_ResetBits(GPIOB, GPIO_Pin_7);
+            break;
+        case 0x1003:
+            if (data->data == 0x0001)
+                GPIO_SetBits(GPIOB, GPIO_Pin_8);
+            else
+                GPIO_ResetBits(GPIOB, GPIO_Pin_8);
+            break;
+        case 0x1004:
+            if (data->data == 0x0001)
+                GPIO_SetBits(GPIOB, GPIO_Pin_9);
+            else
+                GPIO_ResetBits(GPIOB, GPIO_Pin_9);
+            break;
+        default:
+            data->data = 0xFFFF; // Unknown address
+            break;
+        }
+        break;
+
+    case GPIO_CONFIGURE_EVENT: // Configuração de eventos de gatilho
+        configure_gpio_irq(data->addr, data->data);
+        break;
+
+    default:
+        data->data = 0xFFFF; // Unknown operation
+        break;
+    }
+}
+
+void configure_gpio_irq(uint16_t addr, uint16_t edge_opt)
+{
+    switch (addr)
+    {
+    case 0x1101:
+        configure_PA0_irq(edge_opt);
+        break;
+    case 0x1102:
+        configure_PA1_irq(edge_opt);
+        break;
+    case 0x1103:
+        configure_PA2_irq(edge_opt);
+        break;
+    case 0x1104:
+        configure_PA3_irq(edge_opt);
+        break;
+    default:
+        // Handle unknown address
+        break;
+    }
+}
+
+// ------------ FUNCOES THREAD [FIM] -------------
+
+// ------------ ESTRUTURA CORROTINAS [INICIO] -------------
+
 struct task_s {
 	void *(*task)(void *);
 	unsigned char priority;
@@ -292,31 +387,10 @@ void task_schedule(struct task_s *tasks)
 	}
 }
 
-// void process_command(struct data_s *data);
+// ------------ ESTRUTURA CORROTINAS [FIM] -------------
 
-// void EXTI0_IRQHandler(void)
-// {
-//     char buffer_int[256];
-//     struct data_s *data_int = (struct data_s *)&buffer_int;
-    
-//     if (EXTI_GetITStatus(EXTI_Line0) != RESET)
-//     {
-//         memset(buffer_int, 0, sizeof(buffer_int));
-//         data_int->tid = 0xffff;
-//         data_int->oper = 0;
-//         data_int->addr = 0x0001;
-//         data_int->data = 0;
-        
-//         // Simulate response for interrupt trigger
-//         process_command(data_int);
-        
-//         for (int i = 0; i < sizeof(struct data_s); i++)
-//             putchar(buffer_int[i]);
-        
-//         // Clear the EXTI line 0 pending bit
-//         EXTI_ClearITPendingBit(EXTI_Line0);
-//     }
-// }
+
+// ------------ INTERRUPCOES [INICIO] -------------
 
 void EXTI0_IRQHandler(void)
 {
@@ -388,22 +462,19 @@ void configure_PA0_irq(uint16_t edge_opt)
     /* Connect EXTI Line0 to PA0 pin */
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
     // ALTERAR PINSOURCE [LINE]
-    SYSCFG_EXTILineConfig(EXTI_PortSourceGPIOA, EXTI_PinSource0); // ALTERADO
+    SYSCFG_EXTILineConfig(EXTI_PortSourceGPIOA, EXTI_PinSource0);
 
     /* Configure EXTI Line0 */
 
-    // ALTERAR LINE [LINE]
-    EXTI_InitStructure.EXTI_Line = EXTI_Line0; // ALTERADO
+    EXTI_InitStructure.EXTI_Line = EXTI_Line0;
     EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
 
-    // ALTERAR TRIGGER [EDGE]
     EXTI_InitStructure.EXTI_Trigger = edge; // ALTERADO
     EXTI_InitStructure.EXTI_LineCmd = ENABLE;
     EXTI_Init(&EXTI_InitStructure);
 
     /* Enable and set EXTI Line0 Interrupt to the lowest priority */
-    // ALTERAR CHANNEL EXTI [LINE]
-    NVIC_InitStructure.NVIC_IRQChannel = EXTI0_IRQn; // ALTERADO
+    NVIC_InitStructure.NVIC_IRQChannel = EXTI0_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x01;
     NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x01;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
@@ -554,6 +625,8 @@ void configure_PA3_irq(uint16_t edge_opt)
     NVIC_Init(&NVIC_InitStructure);
 }
 
+// ------------ INTERRUPCOES [FIM] -------------
+
 // ------------ CONFIGURA MODO DOS PINOS [INICIO] -------------
 
 void configure_output_pins()
@@ -590,114 +663,15 @@ void configure_input_pins()
 
 // ------------ CONFIGURA MODO DOS PINOS [FIM] -------------
 
-void process_command(struct data_s *data)
-{
-    switch (data->oper)
-    {
-    case GPIO_READ: // LEITURA
-        switch (data->addr) {
-            case 0x1001:
-                data->data = GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0);
-                break;
-            case 0x1002:
-                data->data = GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_1);
-                break;
-            case 0x1003:
-                data->data = GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_2);
-                break;
-            case 0x1004:
-                data->data = GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_3);
-                break;
-            default:
-                data->data = 0xffff; // Unknown address
-                break;
-        }
-
-        send_serial_data(data);
-        break;
-
-    case GPIO_WRITE: // ESCRITA
-        switch (data->addr)
-        {
-        case 0x1001:
-            if (data->data == 0x0001)
-                GPIO_SetBits(GPIOB, GPIO_Pin_6);
-            else
-                GPIO_ResetBits(GPIOB, GPIO_Pin_6);
-            break;
-        case 0x1002:
-            if (data->data == 0x0001)
-                GPIO_SetBits(GPIOB, GPIO_Pin_7);
-            else
-                GPIO_ResetBits(GPIOB, GPIO_Pin_7);
-            break;
-        case 0x1003:
-            if (data->data == 0x0001)
-                GPIO_SetBits(GPIOB, GPIO_Pin_8);
-            else
-                GPIO_ResetBits(GPIOB, GPIO_Pin_8);
-            break;
-        case 0x1004:
-            if (data->data == 0x0001)
-                GPIO_SetBits(GPIOB, GPIO_Pin_9);
-            else
-                GPIO_ResetBits(GPIOB, GPIO_Pin_9);
-            break;
-        default:
-            data->data = 0xFFFF; // Unknown address
-            break;
-        }
-        break;
-
-    case GPIO_CONFIGURE_EVENT: // Configuração de eventos de gatilho
-        configure_gpio_irq(data->addr, data->data);
-        break;
-
-    default:
-        data->data = 0xFFFF; // Unknown operation
-        break;
-    }
-}
-
-void configure_gpio_irq(uint16_t addr, uint16_t edge_opt)
-{
-    switch (addr)
-    {
-    case 0x1101:
-        configure_PA0_irq(edge_opt);
-        break;
-    case 0x1102:
-        configure_PA1_irq(edge_opt);
-        break;
-    case 0x1103:
-        configure_PA2_irq(edge_opt);
-        break;
-    case 0x1104:
-        configure_PA3_irq(edge_opt);
-        break;
-    default:
-        // Handle unknown address
-        break;
-    }
-}
-
 // ------------ MAIN [INICIO] -------------
-
-/* Duvidas:
-    Pull Up e Pull Down?
-    Resistores pros botões
-    Corrotinas
-
-*/
 
 void main(void)
 {
     struct data_s *data;
     uint8_t *buf = (uint8_t *)&data;
-
+    
     struct task_s tasks[MAX_TASKS] = { 0 };
 	struct task_s *ptasks = tasks;
-    
     
     configure_output_pins();
     configure_input_pins();
@@ -705,11 +679,6 @@ void main(void)
     // 0: Rising
     // 1: Falling
     // 2: Rising Falling
-    
-    // configure_PA0_irq(1);
-    // configure_PA1_irq(1);
-    // configure_PA2_irq(1);
-    // configure_PA3_irq(1);
     
     uart_init(USART_PORT, 115200, 0);
     
@@ -720,25 +689,6 @@ void main(void)
     {
         task_schedule(ptasks);
         
-        // if (flag_irq != 0xffff) {
-		// 	memset(buf, 0, sizeof(buf));
-        //     data->tid = 0xffff;
-        //     data->oper = 0;
-        //     data->addr = flag_irq;
-        //     data->data = 0;
-        //     send_serial_data(data);
-        //     flag_irq = 0xffff;
-        
-        // }
-		// if (kbhit()) {
-		// 	memset(buf, 0, sizeof(buf));
-		
-		// 	for (int i = 0; i < sizeof(struct data_s) && kbhit(); i++)
-		// 		buf[i] = getchar();
-        
-        //     process_command(data);
-
-		// }
     }
 }
 
