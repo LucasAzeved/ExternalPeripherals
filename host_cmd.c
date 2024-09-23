@@ -76,26 +76,29 @@ int main(int argc, char **argv)
         send_serial_data(fd, data);
         usleep(1000000); // Pausa de 1 segundo
 
-        // Limpar o buffer e ler a resposta
-        memset(buf, 0, sizeof(buf));
-        
-        // Espera por dados na porta serial com timeout de 5 segundos
-        if (wait_for_data(fd, 5) > 0)
+        if (data->oper == 0x00)
         {
-            receive_serial_data(fd, data);
+            // Limpar o buffer e ler a resposta
+            memset(buf, 0, sizeof(buf));
+            
+            // Espera por dados na porta serial com timeout de 5 segundos
+            if (wait_for_data(fd, 5) > 0)
+            {
+                receive_serial_data(fd, data);
+                print_frame(buf, 256);
+            }
+            else
+            {
+                printf("Timeout: Nenhum dado recebido\n");
+            }
+            // Print da resposta recebida
+            printf("Resposta recebida:\n");
+            printf("TID: 0x%04X\n", data->tid);
+            printf("Operação: 0x%02X\n", data->oper);
+            printf("Endereço: 0x%04X\n", data->addr);
+            printf("Dado: 0x%04X\n", data->data);
+            printf("\n------------------------\n");
         }
-        else
-        {
-            printf("Timeout: Nenhum dado recebido\n");
-        }
-
-        // Print da resposta recebida
-        printf("Resposta recebida:\n");
-        printf("TID: 0x%04X\n", data->tid);
-        printf("Operação: 0x%02X\n", data->oper);
-        printf("Endereço: 0x%04X\n", data->addr);
-        printf("Dado: 0x%04X\n", data->data);
-        printf("\n------------------------\n");
     }
 
     close(fd);
@@ -104,16 +107,19 @@ int main(int argc, char **argv)
 
 void send_serial_data(int fd, struct data_s *data)
 {
-    uint8_t frame[512];  // Buffer for the frame including delimiters and escape characters
+    uint8_t frame[256];  // Buffer for the frame including delimiters and escape characters
     int frame_pos = 0;
 
     // Adicionar delimitador de início do quadro
     frame[frame_pos++] = FRAME_DELIMITER;
 
     // Convertendo os dados para Big-endian no momento do envio
-    uint16_t tid_be = to_big_endian_16(data->tid);
-    uint16_t addr_be = to_big_endian_16(data->addr);
-    int16_t data_be = to_big_endian_16_signed(data->data);
+    // uint16_t tid_be = to_big_endian_16(data->tid);
+    // uint16_t addr_be = to_big_endian_16(data->addr);
+    // int16_t data_be = to_big_endian_16_signed(data->data);
+    uint16_t tid_be =  data->tid;
+    uint16_t addr_be = data->addr;
+    int16_t data_be =  data->data;
 
     // Realizar byte stuffing e adicionar os dados convertidos para o frame
     uint8_t *tid_ptr = (uint8_t *)&tid_be;
@@ -204,25 +210,21 @@ void receive_serial_data(int fd, struct data_s *data)
     // Iterar pelos dados recebidos e decodificá-los
     for (int i = 0; i < bytes_read; i++)
     {
-        if (buf[i] == FRAME_DELIMITER)
-        {
+        if (buf[i] == FRAME_DELIMITER) {
             // Ignorar delimitadores de quadro
             continue;
         }
-        else if (buf[i] == ESCAPE_CHAR)
-        {
+        else if (buf[i] == ESCAPE_CHAR) {
             // O próximo byte está escapado
             escaped = 1;
         }
         else
         {
-            if (escaped)
-            {
+            if (escaped) {
                 data_buf[data_pos++] = buf[i] ^ XOR_VALUE;
                 escaped = 0;
             }
-            else
-            {
+            else {
                 data_buf[data_pos++] = buf[i];
             }
         }
@@ -238,10 +240,18 @@ void receive_serial_data(int fd, struct data_s *data)
 
 void print_frame(uint8_t *frame, int frame_size)
 {
+    int count_delim = 0;
     printf("| ");
-    for (int i = 0; i < frame_size; i++)
-    {
+    for (int i = 0; i < frame_size; i++) {
         printf("0x%02X ", frame[i]);
+        if (frame[i] == FRAME_DELIMITER) {
+            if (count_delim < 2) {
+                count_delim++;
+            }
+            else {
+                break;
+            }
+        }
     }
     printf("|\n\n");
 }

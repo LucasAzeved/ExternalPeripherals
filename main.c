@@ -26,43 +26,126 @@ struct data_s
 void send_serial_data(struct data_s *data);
 void print_frame(uint8_t *frame, int frame_size);
 
+// void send_serial_data(struct data_s *data)
+// {
+//     uint8_t *buf = (uint8_t *)data;
+//     uint8_t frame[512];  // Buffer para o frame com delimitadores e caracteres de escape
+//     int frame_pos = 0;
+    
+//     // Adicionar delimitador de início do quadro
+//     frame[frame_pos++] = FRAME_DELIMITER;
+    
+//     // Realizar byte stuffing e adicionar os dados ao frame
+//     for (int i = 0; i < sizeof(struct data_s); i++)
+//     {
+//         if (buf[i] == FRAME_DELIMITER || buf[i] == ESCAPE_CHAR)
+//         {
+//             frame[frame_pos++] = ESCAPE_CHAR;
+//             frame[frame_pos++] = buf[i] ^ XOR_VALUE;
+//         }
+//         else
+//         {
+//             frame[frame_pos++] = buf[i];
+//         }
+//     }
+    
+//     // Adicionar delimitador de fim do quadro
+//     frame[frame_pos++] = FRAME_DELIMITER;
+    
+//     // Print do frame no formato solicitado na especificação
+//     print_frame(frame, frame_pos);
+    
+//     // Enviar o quadro byte a byte
+//     putchar(FRAME_DELIMITER);  // Delimitador de início
+//     for (int i = 0; i < frame_pos; i++)
+//     {
+//         putchar(frame[i]);
+//     }
+//     putchar(FRAME_DELIMITER);  // Delimitador de fim
+// }
+
 void send_serial_data(struct data_s *data)
 {
-    uint8_t *buf = (uint8_t *)data;
-    uint8_t frame[512];  // Buffer para o frame com delimitadores e caracteres de escape
+    uint8_t frame[256];  // Buffer for the frame including delimiters and escape characters
     int frame_pos = 0;
-    
+
     // Adicionar delimitador de início do quadro
     frame[frame_pos++] = FRAME_DELIMITER;
-    
-    // Realizar byte stuffing e adicionar os dados ao frame
-    for (int i = 0; i < sizeof(struct data_s); i++)
+
+    uint16_t tid_be =  data->tid;
+    uint16_t addr_be = data->addr;
+    int16_t data_be =  data->data;
+
+    // Realizar byte stuffing e adicionar os dados convertidos para o frame
+    uint8_t *tid_ptr = (uint8_t *)&tid_be;
+    uint8_t *addr_ptr = (uint8_t *)&addr_be;
+    uint8_t *data_ptr = (uint8_t *)&data_be;
+
+    // Enviar TID (2 bytes)
+    for (int i = 0; i < 2; i++)
     {
-        if (buf[i] == FRAME_DELIMITER || buf[i] == ESCAPE_CHAR)
+        if (tid_ptr[i] == FRAME_DELIMITER || tid_ptr[i] == ESCAPE_CHAR)
         {
             frame[frame_pos++] = ESCAPE_CHAR;
-            frame[frame_pos++] = buf[i] ^ XOR_VALUE;
+            frame[frame_pos++] = tid_ptr[i] ^ XOR_VALUE;
         }
         else
         {
-            frame[frame_pos++] = buf[i];
+            frame[frame_pos++] = tid_ptr[i];
         }
     }
-    
+
+    // Enviar operação (1 byte)
+    if (data->oper == FRAME_DELIMITER || data->oper == ESCAPE_CHAR)
+    {
+        frame[frame_pos++] = ESCAPE_CHAR;
+        frame[frame_pos++] = data->oper ^ XOR_VALUE;
+    }
+    else
+    {
+        frame[frame_pos++] = data->oper;
+    }
+
+    // Enviar endereço (2 bytes)
+    for (int i = 0; i < 2; i++)
+    {
+        if (addr_ptr[i] == FRAME_DELIMITER || addr_ptr[i] == ESCAPE_CHAR)
+        {
+            frame[frame_pos++] = ESCAPE_CHAR;
+            frame[frame_pos++] = addr_ptr[i] ^ XOR_VALUE;
+        }
+        else
+        {
+            frame[frame_pos++] = addr_ptr[i];
+        }
+    }
+
+    // Enviar dado (2 bytes)
+    for (int i = 0; i < 2; i++)
+    {
+        if (data_ptr[i] == FRAME_DELIMITER || data_ptr[i] == ESCAPE_CHAR)
+        {
+            frame[frame_pos++] = ESCAPE_CHAR;
+            frame[frame_pos++] = data_ptr[i] ^ XOR_VALUE;
+        }
+        else
+        {
+            frame[frame_pos++] = data_ptr[i];
+        }
+    }
+
     // Adicionar delimitador de fim do quadro
     frame[frame_pos++] = FRAME_DELIMITER;
-    
-    // Print do frame no formato solicitado na especificação
+
+    // Print do frame no formato especificado
     print_frame(frame, frame_pos);
-    
-    // Enviar o quadro byte a byte
-    putchar(FRAME_DELIMITER);  // Delimitador de início
-    for (int i = 0; i < frame_pos; i++)
-    {
+
+    // Enviar o quadro
+    for (int i = 0; i < frame_pos; i++) {
         putchar(frame[i]);
     }
-    putchar(FRAME_DELIMITER);  // Delimitador de fim
 }
+
 
 void print_frame(uint8_t *frame, int frame_size)
 {
@@ -86,15 +169,9 @@ void print_frame(uint8_t *frame, int frame_size)
 
 void *taskAsyncIRQ(void *arg)
 {
-	// static int cont = 0;
-	// printf("task 1, cont: %d\n", cont++);
-	
 	char buf[256];
 	struct data_s *data = (struct data_s *)&buf;
     
-    // struct data_s *data;
-    // uint8_t *buf = (uint8_t *)&data;
-
     if (flag_irq != 0xffff) {
         
         // printf("Antes: 0x%04x\n", flag_irq);
@@ -103,11 +180,12 @@ void *taskAsyncIRQ(void *arg)
         data->oper = 0;
         data->addr = flag_irq;
         data->data = 0;
+        printf("[IRQ] addr: 0x%04X tid: 0x%04X \n", data->addr, data->tid);
+        
         send_serial_data(buf);
         flag_irq = 0xffff;
         
         // printf("Depois: 0x%04x\n", flag_irq);
-        printf("[IRQ] addr: 0x%04X tid: 0x%04X \n", data->addr, data->tid);
     }
 	
 	return 0;
@@ -120,11 +198,52 @@ void *taskProcessCommand(void *arg)
 
     char buf[256];
 	struct data_s *data = (struct data_s *)&buf;
+    
+    uint8_t data_buf[sizeof(struct data_s)];
+    int data_pos = 0;
+    int escaped = 0;
+    int count_buf = 0;
 	
     if (kbhit()) {
         memset(buf, 0, sizeof(buf));
-        for (int i = 0; i < sizeof(struct data_s) && kbhit(); i++)
+        // for (int i = 0; i < sizeof(struct data_s) && kbhit(); i++) {
+        for (int i = 0; i < 256; i++) {
             buf[i] = getchar();
+            count_buf++;
+            // Iterar pelos dados recebidos e decodificá-los
+            if (buf[i] == FRAME_DELIMITER)
+            {
+                continue;
+            }
+            else if (buf[i] == ESCAPE_CHAR)
+            {
+                // O próximo byte está escapado
+                escaped = 1;
+            }
+            else
+            {
+                if (escaped)
+                {
+                    data_buf[data_pos++] = buf[i] ^ XOR_VALUE;
+                    escaped = 0;
+                }
+                else
+                {
+                    data_buf[data_pos++] = buf[i];
+                }
+            }
+            
+            // Parar quando a estrutura completa estiver preenchida
+            if (data_pos >= sizeof(struct data_s)) {
+                buf[i+1] = getchar();
+                count_buf++;
+                break;
+            }
+        }
+
+        print_frame(buf, count_buf);
+        // Copiar os dados decodificados para a estrutura
+        memcpy(data, data_buf, sizeof(struct data_s));
         process_command(data);
         printf("TID: 0x%04X OP: 0x%02X ADDR: 0x%04X DATA: 0x%04X \n", data->tid, data->oper, data->addr, data->data);
 

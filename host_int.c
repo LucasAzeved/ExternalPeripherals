@@ -36,7 +36,7 @@ int wait_for_data(int fd, int timeout)
 
 void receive_serial_data(int fd, struct data_s *data)
 {
-    uint8_t buf[512];
+    uint8_t buf[256];
     uint8_t data_buf[sizeof(struct data_s)];
     int data_pos = 0;
     int escaped = 0;
@@ -109,12 +109,9 @@ int main(int argc, char **argv)
     printf("Running...\n");
 	
     while (1) {
-		// write(fd, ptr, sizeof(struct data_s));
 		usleep(50000);
 		// read(fd, ptr, sizeof(struct data_s));
-        if (wait_for_data(fd, 999) > 0) {
-            receive_serial_data(fd, data);
-        }
+        receive_serial_data(fd, data);
         // printf("0x%04X\n", data->tid);
         if (data->tid == 0xffff) {
             printf("0x%04X 0x%02X 0x%04X 0x%04X \n", data->tid, data->oper, data->addr, data->data);
