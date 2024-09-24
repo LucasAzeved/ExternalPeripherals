@@ -104,7 +104,7 @@ int main(int argc, char **argv)
         
         if (data->tid == 0x0)
             continue;
-
+        
         if (data->tid == 0xffff) {
             printf("[IRQ] ");
         }

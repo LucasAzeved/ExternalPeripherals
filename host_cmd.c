@@ -24,39 +24,36 @@ struct data_s
 void send_serial_data(int fd, struct data_s *data);
 void receive_serial_data(int fd, struct data_s *data);
 void print_frame(uint8_t *frame, int frame_size);
-uint16_t to_big_endian_16(uint16_t value);
-int16_t to_big_endian_16_signed(int16_t value);
-int wait_for_data(int fd, int timeout);
 
 int main(int argc, char **argv)
 {
     int fd;
     char buf[256];
     struct data_s *data = (struct data_s *)&buf;
-
+    
     // Inicializando o gerador de números aleatórios
     srand(time(NULL));
-
+    
     if (argc != 2)
     {
         printf("Usage: serial_host_data <port>\n");
         return -1;
     }
-
+    
     fd = open(argv[1], O_RDWR | O_NOCTTY | O_NDELAY);
-
+    
     if (fd == -1)
     {
         printf("\nError opening port");
         return -1;
     }
-
+    
     // Main loop
     while (1)
     {
         // Gerando um TID aleatório
         data->tid = (uint16_t)rand(); 
-
+        
         // Solicitando input do usuário
         printf("Digite a operação (0 - READ, 1 - WRITE, ou 2 - CONFIGURE EDGE): ");
         scanf("%hhx", &data->oper);  // Entrada em hexadecimal
@@ -64,43 +61,20 @@ int main(int argc, char **argv)
         scanf("%hx", &data->addr);   // Entrada em hexadecimal
         printf("Digite o dado em hexadecimal: ");
         scanf("%hx", &data->data);   // Entrada em hexadecimal
-
+        
         // Print dos dados a serem enviados para facilitar o debug
         printf("\nDados a serem enviados:\n");
         printf("TID: 0x%04X\n", data->tid);
         printf("Operação: 0x%02X\n", data->oper);
         printf("Endereço: 0x%04X\n", data->addr);
         printf("Dado: 0x%04X\n", data->data);
-
+        
         // Enviar dados
         send_serial_data(fd, data);
         usleep(1000000); // Pausa de 1 segundo
-
-        if (data->oper == 0x00)
-        {
-            // Limpar o buffer e ler a resposta
-            // memset(buf, 0, sizeof(buf));
-            
-            // Espera por dados na porta serial com timeout de 5 segundos
-            // if (wait_for_data(fd, 5) > 0)
-            // {
-            // receive_serial_data(fd, data);
-                // print_frame(buf, 256);
-            // }
-            // else
-            // {
-                // printf("Timeout: Nenhum dado recebido\n");
-            // }
-            // Print da resposta recebida
-            // printf("Resposta recebida:\n");
-            // printf("TID: 0x%04X\n", data->tid);
-            // printf("Operação: 0x%02X\n", data->oper);
-            // printf("Endereço: 0x%04X\n", data->addr);
-            // printf("Dado: 0x%04X\n", data->data);
-            // printf("\n------------------------\n");
-        }
+        
     }
-
+    
     close(fd);
     return 0;
 }
@@ -109,14 +83,11 @@ void send_serial_data(int fd, struct data_s *data)
 {
     uint8_t frame[256];  // Buffer for the frame including delimiters and escape characters
     int frame_pos = 0;
-
+    
     // Adicionar delimitador de início do quadro
     frame[frame_pos++] = FRAME_DELIMITER;
-
+    
     // Convertendo os dados para Big-endian no momento do envio
-    // uint16_t tid_be = to_big_endian_16(data->tid);
-    // uint16_t addr_be = to_big_endian_16(data->addr);
-    // int16_t data_be = to_big_endian_16_signed(data->data);
     uint16_t tid_be =  data->tid;
     uint16_t addr_be = data->addr;
     int16_t data_be =  data->data;
@@ -254,29 +225,4 @@ void print_frame(uint8_t *frame, int frame_size)
         }
     }
     printf("|\n\n");
-}
-
-// Função para converter inteiros de 16 bits para big-endian
-uint16_t to_big_endian_16(uint16_t value)
-{
-    return (value >> 8) | (value << 8);
-}
-
-// Função para converter inteiros com sinal de 16 bits para big-endian
-int16_t to_big_endian_16_signed(int16_t value)
-{
-    return (value >> 8) | (value << 8);
-}
-
-// Função para aguardar dados na porta serial
-int wait_for_data(int fd, int timeout)
-{
-    fd_set readfds;
-    struct timeval tv;
-    FD_ZERO(&readfds);
-    FD_SET(fd, &readfds);
-    tv.tv_sec = timeout;
-    tv.tv_usec = 0;
-
-    return select(fd + 1, &readfds, NULL, NULL, &tv);
 }
