@@ -79,25 +79,25 @@ int main(int argc, char **argv)
         if (data->oper == 0x00)
         {
             // Limpar o buffer e ler a resposta
-            memset(buf, 0, sizeof(buf));
+            // memset(buf, 0, sizeof(buf));
             
             // Espera por dados na porta serial com timeout de 5 segundos
-            if (wait_for_data(fd, 5) > 0)
-            {
-                receive_serial_data(fd, data);
-                print_frame(buf, 256);
-            }
-            else
-            {
-                printf("Timeout: Nenhum dado recebido\n");
-            }
+            // if (wait_for_data(fd, 5) > 0)
+            // {
+            // receive_serial_data(fd, data);
+                // print_frame(buf, 256);
+            // }
+            // else
+            // {
+                // printf("Timeout: Nenhum dado recebido\n");
+            // }
             // Print da resposta recebida
-            printf("Resposta recebida:\n");
-            printf("TID: 0x%04X\n", data->tid);
-            printf("Operação: 0x%02X\n", data->oper);
-            printf("Endereço: 0x%04X\n", data->addr);
-            printf("Dado: 0x%04X\n", data->data);
-            printf("\n------------------------\n");
+            // printf("Resposta recebida:\n");
+            // printf("TID: 0x%04X\n", data->tid);
+            // printf("Operação: 0x%02X\n", data->oper);
+            // printf("Endereço: 0x%04X\n", data->addr);
+            // printf("Dado: 0x%04X\n", data->data);
+            // printf("\n------------------------\n");
         }
     }
 

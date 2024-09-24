@@ -148,7 +148,7 @@ void send_serial_data(struct data_s *data)
     frame[frame_pos++] = FRAME_DELIMITER;
 
     // Print do frame no formato especificado
-    print_frame(frame, frame_pos);
+    // print_frame(frame, frame_pos);
 
     // Enviar o quadro
     for (int i = 0; i < frame_pos; i++) {
@@ -183,7 +183,7 @@ void *taskAsyncIRQ(void *arg)
         data->oper = 0;
         data->addr = flag_irq;
         data->data = 0;
-        printf("[IRQ] addr: 0x%04X tid: 0x%04X \n", data->addr, data->tid);
+        // printf("[IRQ] addr: 0x%04X tid: 0x%04X \n", data->addr, data->tid);
         
         send_serial_data(buf);
         flag_irq = 0xffff;
@@ -241,11 +241,11 @@ void *taskProcessCommand(void *arg)
             }
         }
 
-        print_frame(buf, count_buf);
+        // print_frame(buf, count_buf);
         // Copiar os dados decodificados para a estrutura
         memcpy(data, data_buf, sizeof(struct data_s));
         process_command(data);
-        printf("TID: 0x%04X OP: 0x%02X ADDR: 0x%04X DATA: 0x%04X \n", data->tid, data->oper, data->addr, data->data);
+        // printf("TID: 0x%04X OP: 0x%02X ADDR: 0x%04X DATA: 0x%04X \n", data->tid, data->oper, data->addr, data->data);
 
     }
 	

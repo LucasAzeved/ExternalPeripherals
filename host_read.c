@@ -102,9 +102,13 @@ int main(int argc, char **argv)
 		
         receive_serial_data(fd, data);
         
+        if (data->tid == 0x0)
+            continue;
+
         if (data->tid == 0xffff) {
-            printf("0x%04X 0x%02X 0x%04X 0x%04X \n", data->tid, data->oper, data->addr, data->data);
+            printf("[IRQ] ");
         }
+        printf("0x%04X 0x%02X 0x%04X 0x%04X \n", data->tid, data->oper, data->addr, data->data);
 	}
 	
     close(fd);
