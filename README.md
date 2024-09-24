@@ -66,7 +66,15 @@ Para compilar o firmware embarcado, navegue até o diretório `ExternalPeriphera
 ```
 make
 ```
-Este comando gerará o binário do firmware que pode ser carregado no microcontrolador STM32F411 Blackpill.
+Este comando gerará o binário do firmware que pode ser carregado no microcontrolador STM32F411 Blackpill através do comando:
+```
+make flash
+```
+Para estabelecer a conexão serial é necessária a instanciação da porta ACM0, o mesmo é feito utilizando o seguinte comando:
+```
+make serial
+```
+Após instanciada a porta é preciso executar o comando ```CTRL + C```, no mesmo terminal, para permitir a comunicação entre host e microcontrolador.
 
 ### 2. Execução da Aplicação Externa
 A aplicação externa pode ser executada em qualquer máquina com uma conexão serial com o microcontrolador.
