@@ -51,7 +51,8 @@ A aplicação externa é responsável por enviar comandos ao sistema embarcado e
 /ExternalPeripherals
 │
 ├── stm32_baremetal_blackpill/  # Pasta contendo o código do firmware e Makefile para o STM32F411 Blackpill
-│   ├── main.c                  # Código principal do firmware embarcado
+│   ├── src/                    # 
+│   |   ├── main.c              # Código principal do firmware embarcado
 │   ├── Makefile                # Makefile para compilar o firmware
 ├── host_cmd.c                  # Código da aplicação externa para envio de comandos
 ├── host_read.c                 # Código da aplicação externa para leitura de dados
